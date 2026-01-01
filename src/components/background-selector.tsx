@@ -115,7 +115,12 @@ export function BackgroundSelector() {
                     className="w-full h-full object-cover"
                     loading="lazy"
                     onError={(e) => {
-                      e.currentTarget.style.display = 'none';
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.style.backgroundColor = '#1f2937';
+                      }
                     }}
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -147,7 +152,12 @@ export function BackgroundSelector() {
                     className="w-full h-full object-cover"
                     loading="lazy"
                     onError={(e) => {
-                      e.currentTarget.style.display = 'none';
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.style.backgroundColor = '#1f2937';
+                      }
                     }}
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
