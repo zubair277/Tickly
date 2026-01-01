@@ -1,6 +1,5 @@
 import GlobalTimer from "@/components/global-timer";
 import { BackgroundSelector } from "@/components/background-selector";
-import { GITHUB_URL } from "@/constants";
 import { GlobalTimerProvider } from "@/context/global-timer-context";
 import { QueryClient } from "@tanstack/react-query";
 import { Outlet, rootRouteWithContext } from "@tanstack/react-router";

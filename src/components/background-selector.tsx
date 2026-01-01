@@ -113,6 +113,10 @@ export function BackgroundSelector() {
                     src={bg.path}
                     alt={bg.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <span className="text-white font-medium">{bg.name}</span>
@@ -141,6 +145,10 @@ export function BackgroundSelector() {
                     src={bg.path}
                     alt={bg.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <span className="text-white text-sm font-medium">{bg.name}</span>
