@@ -188,9 +188,6 @@ export function BackgroundSelector() {
                 </div>
               ))}
             </div>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </DialogContent>
