@@ -54,7 +54,7 @@ body {
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222.2 84% 4.9% / 0.7;
     --foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
@@ -92,6 +92,17 @@ body {
 
   body {
     @apply bg-background text-foreground;
+    background-image: var(--mobile-bg, url('/background/mobile/bg-1.jpg'));
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      background-image: var(--desktop-bg, url('/background/desktop/bg-1.jpg'));
+    }
   }
 
   ::-webkit-scrollbar {
