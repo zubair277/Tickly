@@ -99,34 +99,45 @@ export function BackgroundSelector() {
             <h3 className="text-lg font-semibold mb-3">Desktop Background</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {DESKTOP_BACKGROUNDS.map((bg) => (
-                <button
-                  key={bg.id}
-                  onClick={() => applyBackground("desktop", bg.id)}
-                  className={cn(
-                    "relative aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105",
-                    selectedDesktop === bg.id
-                      ? "border-primary ring-2 ring-primary"
-                      : "border-muted"
-                  )}
-                >
-                  <img
-                    src={bg.path}
-                    alt={bg.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.style.backgroundColor = '#1f2937';
-                      }
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="text-white font-medium">{bg.name}</span>
-                  </div>
-                </button>
+                <div key={bg.id} className="relative group">
+                  <button
+                    onClick={() => applyBackground("desktop", bg.id)}
+                    className={cn(
+                      "relative aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 w-full",
+                      selectedDesktop === bg.id
+                        ? "border-primary ring-2 ring-primary"
+                        : "border-muted"
+                    )}
+                  >
+                    <img
+                      src={bg.path}
+                      alt={bg.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.style.backgroundColor = '#1f2937';
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <span className="text-white font-medium text-sm">{bg.name}</span>
+                    </div>
+                    {selectedDesktop !== bg.id && (
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm px-4 py-2 bg-primary rounded-md">Select</span>
+                      </div>
+                    )}
+                    {selectedDesktop === bg.id && (
+                      <div className="absolute top-2 right-2 bg-primary text-white text-xs font-semibold px-2 py-1 rounded-md">
+                        Selected
+                      </div>
+                    )}
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -136,33 +147,47 @@ export function BackgroundSelector() {
             <h3 className="text-lg font-semibold mb-3">Mobile Background</h3>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
               {MOBILE_BACKGROUNDS.map((bg) => (
-                <button
-                  key={bg.id}
-                  onClick={() => applyBackground("mobile", bg.id)}
-                  className={cn(
-                    "relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-105",
-                    selectedMobile === bg.id
-                      ? "border-primary ring-2 ring-primary"
-                      : "border-muted"
-                  )}
-                >
-                  <img
-                    src={bg.path}
-                    alt={bg.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.style.backgroundColor = '#1f2937';
-                      }
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">{bg.name}</span>
-                  </div>
+                <div key={bg.id} className="relative group">
+                  <button
+                    onClick={() => applyBackground("mobile", bg.id)}
+                    className={cn(
+                      "relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 w-full",
+                      selectedMobile === bg.id
+                        ? "border-primary ring-2 ring-primary"
+                        : "border-muted"
+                    )}
+                  >
+                    <img
+                      src={bg.path}
+                      alt={bg.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.style.backgroundColor = '#1f2937';
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <span className="text-white text-xs font-medium">{bg.name}</span>
+                    </div>
+                    {selectedMobile !== bg.id && (
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-white font-semibold text-xs px-3 py-1 bg-primary rounded-md">Select</span>
+                      </div>
+                    )}
+                    {selectedMobile === bg.id && (
+                      <div className="absolute top-2 right-2 bg-primary text-white text-xs font-semibold px-2 py-1 rounded-md">
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
                 </button>
               ))}
             </div>
