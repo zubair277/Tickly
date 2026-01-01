@@ -421,24 +421,24 @@ export const TimerComponent: React.FC<TimerProps> = ({
         </p>
       </div>
 
-      <div className="flex flex-row items-center gap-2">
-        <p className="text-8xl md:text-9xl font-bold uppercase tabular-nums">
+      <div className="flex flex-row items-center gap-1 md:gap-2">
+        <p className="text-5xl md:text-9xl font-bold uppercase tabular-nums">
           {time.hours.toString().padStart(2, "0")}
         </p>
 
-        <p className="text-8xl md:text-9xl font-bold uppercase tabular-nums">
+        <p className="text-5xl md:text-9xl font-bold uppercase tabular-nums">
           :
         </p>
 
-        <p className="text-8xl md:text-9xl font-bold uppercase tabular-nums">
+        <p className="text-5xl md:text-9xl font-bold uppercase tabular-nums">
           {time.minutes.toString().padStart(2, "0")}
         </p>
 
-        <p className="text-8xl md:text-9xl font-bold uppercase tabular-nums">
+        <p className="text-5xl md:text-9xl font-bold uppercase tabular-nums">
           :
         </p>
 
-        <p className="text-8xl md:text-9xl font-bold uppercase tabular-nums">
+        <p className="text-5xl md:text-9xl font-bold uppercase tabular-nums">
           {time.seconds.toString().padStart(2, "0")}
         </p>
       </div>
