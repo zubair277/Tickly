@@ -234,7 +234,6 @@ export const TimerComponent: React.FC<TimerProps> = ({
           tag: `timer-${timer.id}`,
           requireInteraction: isComplete,
           silent: !isComplete,
-          vibrate: isComplete ? [200, 100, 200] : undefined,
         }
       );
 
