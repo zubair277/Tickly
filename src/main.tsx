@@ -5,6 +5,11 @@ import ReactDOM from "react-dom/client";
 import { Toaster } from "./components/ui/sonner";
 import { routeTree } from "./routeTree.gen";
 
+// Request notification permission on app load
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+
 const queryClient = new QueryClient();
 
 // Set up a Router instance

@@ -93,6 +93,7 @@ export const TimerComponent: React.FC<TimerProps> = ({
   const { setTimer } = useGlobalTimer();
 
   const countDownInterval = React.useRef<NodeJS.Timeout>();
+  const notificationRef = React.useRef<Notification | null>(null);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -145,6 +146,31 @@ export const TimerComponent: React.FC<TimerProps> = ({
     audioRef.current.src = audioUrl;
   };
 
+  const showNotification = (remainingTime: Time) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // Close existing notification
+      if (notificationRef.current) {
+        notificationRef.current.close();
+      }
+
+      const timeStr = `${remainingTime.hours.toString().padStart(2, '0')}:${remainingTime.minutes.toString().padStart(2, '0')}:${remainingTime.seconds.toString().padStart(2, '0')}`;
+      
+      notificationRef.current = new Notification(timer.name, {
+        body: `Time remaining: ${timeStr}`,
+        icon: '/logo.png',
+        tag: `timer-${timer.id}`,
+        requireInteraction: false,
+        silent: true,
+      });
+
+      // Update notification every few seconds
+      notificationRef.current.onclick = () => {
+        window.focus();
+        navigate({ to: `/$timerId`, params: { timerId: timer.id } });
+      };
+    }
+  };
+
   const startTimer = () => {
     setAudioSrc();
 
@@ -154,21 +180,28 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
     setIsRunning(true);
 
+    // Show initial notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      showNotification(isTimeEmpty(time) ? timer.time : time);
+    }
+
     countDownInterval.current = setInterval(() => {
       setTime((prev) => {
+        let newTime: Time;
+        
         if (prev.seconds > 0) {
-          return {
+          newTime = {
             ...prev,
             seconds: prev.seconds - 1,
           };
         } else if (prev.minutes > 0) {
-          return {
+          newTime = {
             ...prev,
             minutes: prev.minutes - 1,
             seconds: 59,
           };
         } else if (prev.hours > 0) {
-          return {
+          newTime = {
             ...prev,
             hours: prev.hours - 1,
             minutes: 59,
@@ -179,6 +212,19 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
           playAudio();
 
+          // Show completion notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            if (notificationRef.current) {
+              notificationRef.current.close();
+            }
+            notificationRef.current = new Notification(`${timer.name} Complete!`, {
+              body: 'Timer has finished',
+              icon: '/logo.png',
+              tag: `timer-${timer.id}-complete`,
+              requireInteraction: true,
+            });
+          }
+
           if (timer.isOneTime) {
             deleteTimer();
 
@@ -188,13 +234,23 @@ export const TimerComponent: React.FC<TimerProps> = ({
           }
 
           if (timer.isInterval) {
-            return timer.time;
+            newTime = timer.time;
+            // Show notification for restart
+            showNotification(newTime);
+            return newTime;
           }
 
           pauseTimer();
 
           return prev;
         }
+        
+        // Update notification every 10 seconds or on minute changes
+        if (newTime.seconds % 10 === 0 || newTime.seconds === 59) {
+          showNotification(newTime);
+        }
+        
+        return newTime;
       });
     }, 1000);
   };
@@ -203,6 +259,12 @@ export const TimerComponent: React.FC<TimerProps> = ({
     setIsRunning(false);
 
     clearInterval(countDownInterval.current!);
+    
+    // Close notification when timer is paused
+    if (notificationRef.current) {
+      notificationRef.current.close();
+      notificationRef.current = null;
+    }
   };
 
   const resetTimer = () => {
@@ -241,7 +303,19 @@ export const TimerComponent: React.FC<TimerProps> = ({
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("pause", handleEnded);
       audio.removeEventListener("play", handlePlay);
+      
+      // Clean up notification on unmount
+      if (notificationRef.current) {
+        notificationRef.current.close();
+      }
     };
+  }, []);
+  
+  // Request notification permission if not already granted
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, []);
 
   if (isMinimized) {
