@@ -94,11 +94,40 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
   const countDownInterval = React.useRef<NodeJS.Timeout>();
   const notificationRef = React.useRef<Notification | null>(null);
+  const wakeLockRef = React.useRef<any>(null);
+  const lastTickTime = React.useRef<number>(Date.now());
+  const isPausedByUser = React.useRef<boolean>(false);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const audioRef = React.useRef<HTMLAudioElement>(new Audio());
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        console.log('Wake Lock acquired');
+        
+        wakeLockRef.current.addEventListener('release', () => {
+          console.log('Wake Lock released');
+        });
+      }
+    } catch (err) {
+      console.error('Wake Lock error:', err);
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      } catch (err) {
+        console.error('Wake Lock release error:', err);
+      }
+    }
+  };
 
   const playAudio = () => {
     audioRef.current.play();
@@ -111,6 +140,45 @@ export const TimerComponent: React.FC<TimerProps> = ({
     setIsAudioPlaying(false);
   };
 
+  const saveTimerState = (currentTime: Time, running: boolean) => {
+    const state = {
+      timerId: timer.id,
+      time: currentTime,
+      isRunning: running,
+      lastUpdate: Date.now(),
+    };
+    localStorage.setItem(`timer-state-${timer.id}`, JSON.stringify(state));
+  };
+
+  const loadTimerState = () => {
+    const saved = localStorage.getItem(`timer-state-${timer.id}`);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.isRunning) {
+          // Calculate how much time has passed
+          const elapsed = Math.floor((Date.now() - state.lastUpdate) / 1000);
+          const totalSeconds = 
+            state.time.hours * 3600 + 
+            state.time.minutes * 60 + 
+            state.time.seconds - elapsed;
+          
+          if (totalSeconds > 0) {
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            setTime({ hours, minutes, seconds });
+            return true; // Indicate we should resume
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load timer state:', err);
+      }
+    }
+    return false;
+  };
+
   const deleteTimer = async () => {
     const timers = (await get("timers")) as Timer[] | undefined;
 
@@ -119,6 +187,9 @@ export const TimerComponent: React.FC<TimerProps> = ({
     const newTimers = timers.filter((t) => t.id !== timer.id);
 
     await set("timers", newTimers);
+    
+    // Clean up saved state
+    localStorage.removeItem(`timer-state-${timer.id}`);
 
     toast.success(
       <span>
@@ -146,7 +217,7 @@ export const TimerComponent: React.FC<TimerProps> = ({
     audioRef.current.src = audioUrl;
   };
 
-  const showNotification = (remainingTime: Time) => {
+  const showNotification = (remainingTime: Time, isComplete = false) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       // Close existing notification
       if (notificationRef.current) {
@@ -155,15 +226,18 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
       const timeStr = `${remainingTime.hours.toString().padStart(2, '0')}:${remainingTime.minutes.toString().padStart(2, '0')}:${remainingTime.seconds.toString().padStart(2, '0')}`;
       
-      notificationRef.current = new Notification(timer.name, {
-        body: `Time remaining: ${timeStr}`,
-        icon: '/logo.png',
-        tag: `timer-${timer.id}`,
-        requireInteraction: false,
-        silent: true,
-      });
+      notificationRef.current = new Notification(
+        isComplete ? `${timer.name} Complete!` : timer.name,
+        {
+          body: isComplete ? 'Timer has finished' : `Time remaining: ${timeStr}`,
+          icon: '/logo.png',
+          tag: `timer-${timer.id}`,
+          requireInteraction: isComplete,
+          silent: !isComplete,
+          vibrate: isComplete ? [200, 100, 200] : undefined,
+        }
+      );
 
-      // Update notification every few seconds
       notificationRef.current.onclick = () => {
         window.focus();
         navigate({ to: `/$timerId`, params: { timerId: timer.id } });
@@ -179,17 +253,45 @@ export const TimerComponent: React.FC<TimerProps> = ({
     }
 
     setIsRunning(true);
+    isPausedByUser.current = false;
+    lastTickTime.current = Date.now();
+    
+    // Request wake lock to keep screen active
+    requestWakeLock();
 
     // Show initial notification
     if ('Notification' in window && Notification.permission === 'granted') {
       showNotification(isTimeEmpty(time) ? timer.time : time);
     }
+    
+    // Save initial state
+    saveTimerState(isTimeEmpty(time) ? timer.time : time, true);
 
     countDownInterval.current = setInterval(() => {
       setTime((prev) => {
         let newTime: Time;
         
-        if (prev.seconds > 0) {
+        // Handle time drift - check if we've been suspended
+        const now = Date.now();
+        const drift = Math.floor((now - lastTickTime.current) / 1000);
+        lastTickTime.current = now;
+        
+        // If drift is > 2 seconds, we were probably suspended - adjust time
+        if (drift > 2) {
+          const totalSeconds = 
+            prev.hours * 3600 + prev.minutes * 60 + prev.seconds - drift;
+          
+          if (totalSeconds <= 0) {
+            // Timer completed while suspended
+            newTime = { hours: 0, minutes: 0, seconds: 0 };
+          } else {
+            newTime = {
+              hours: Math.floor(totalSeconds / 3600),
+              minutes: Math.floor((totalSeconds % 3600) / 60),
+              seconds: totalSeconds % 60,
+            };
+          }
+        } else if (prev.seconds > 0) {
           newTime = {
             ...prev,
             seconds: prev.seconds - 1,
@@ -208,45 +310,40 @@ export const TimerComponent: React.FC<TimerProps> = ({
             seconds: 59,
           };
         } else {
+          // Timer complete
           audioRef.current.currentTime = 0;
-
           playAudio();
 
           // Show completion notification
-          if ('Notification' in window && Notification.permission === 'granted') {
-            if (notificationRef.current) {
-              notificationRef.current.close();
-            }
-            notificationRef.current = new Notification(`${timer.name} Complete!`, {
-              body: 'Timer has finished',
-              icon: '/logo.png',
-              tag: `timer-${timer.id}-complete`,
-              requireInteraction: true,
-            });
-          }
+          showNotification(timer.time, true);
+          
+          // Clear saved state
+          localStorage.removeItem(`timer-state-${timer.id}`);
 
           if (timer.isOneTime) {
+            releaseWakeLock();
             deleteTimer();
-
             navigate({ to: "/", replace: true });
-
             return timer.time;
           }
 
           if (timer.isInterval) {
             newTime = timer.time;
-            // Show notification for restart
             showNotification(newTime);
+            saveTimerState(newTime, true);
             return newTime;
           }
 
+          releaseWakeLock();
           pauseTimer();
-
           return prev;
         }
         
-        // Update notification every 10 seconds or on minute changes
-        if (newTime.seconds % 10 === 0 || newTime.seconds === 59) {
+        // Save state every tick
+        saveTimerState(newTime, true);
+        
+        // Update notification every 5 seconds
+        if (newTime.seconds % 5 === 0) {
           showNotification(newTime);
         }
         
@@ -257,8 +354,15 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
   const pauseTimer = () => {
     setIsRunning(false);
+    isPausedByUser.current = true;
 
     clearInterval(countDownInterval.current!);
+    
+    // Release wake lock
+    releaseWakeLock();
+    
+    // Save paused state
+    saveTimerState(time, false);
     
     // Close notification when timer is paused
     if (notificationRef.current) {
@@ -269,14 +373,53 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
   const resetTimer = () => {
     setTime(timer.time);
-
     pauseTimer();
+    
+    // Clear saved state
+    localStorage.removeItem(`timer-state-${timer.id}`);
   };
 
   useEffect(() => {
     setTime(timer.time);
     pauseTimer();
   }, [timer.time]);
+  
+  // Handle page visibility - resume timer if it was running when hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Page became visible - check if we need to restore state
+        const shouldResume = loadTimerState();
+        if (shouldResume && !isPausedByUser.current) {
+          // Auto-resume if timer was running
+          setTimeout(() => {
+            if (!isRunning) {
+              startTimer();
+            }
+          }, 100);
+        }
+      } else {
+        // Page hidden - ensure state is saved
+        if (isRunning) {
+          saveTimerState(time, true);
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Load initial state
+    const shouldResume = loadTimerState();
+    if (shouldResume && !isPausedByUser.current) {
+      setTimeout(() => {
+        startTimer();
+      }, 500);
+    }
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     onRun?.(isRunning);
@@ -308,8 +451,16 @@ export const TimerComponent: React.FC<TimerProps> = ({
       if (notificationRef.current) {
         notificationRef.current.close();
       }
+      
+      // Release wake lock on unmount
+      releaseWakeLock();
+      
+      // Save final state
+      if (isRunning) {
+        saveTimerState(time, true);
+      }
     };
-  }, []);
+  }, [isRunning, time]);
   
   // Request notification permission if not already granted
   useEffect(() => {
