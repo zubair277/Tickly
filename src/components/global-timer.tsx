@@ -154,35 +154,6 @@ export const TimerComponent: React.FC<TimerProps> = ({
     localStorage.setItem(`timer-state-${timer.id}`, JSON.stringify(state));
   };
 
-  const loadTimerState = () => {
-    const saved = localStorage.getItem(`timer-state-${timer.id}`);
-    if (saved) {
-      try {
-        const state = JSON.parse(saved);
-        if (state.isRunning) {
-          // Calculate how much time has passed
-          const elapsed = Math.floor((Date.now() - state.lastUpdate) / 1000);
-          const totalSeconds = 
-            state.time.hours * 3600 + 
-            state.time.minutes * 60 + 
-            state.time.seconds - elapsed;
-          
-          if (totalSeconds > 0) {
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-            
-            setTime({ hours, minutes, seconds });
-            return true; // Indicate we should resume
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load timer state:', err);
-      }
-    }
-    return false;
-  };
-
   const deleteTimer = async () => {
     const timers = (await get("timers")) as Timer[] | undefined;
 
