@@ -275,10 +275,11 @@ export const TimerComponent: React.FC<TimerProps> = ({
         const drift = Math.floor((now - lastTickTime.current) / 1000);
         lastTickTime.current = now;
         
-        // If drift is > 2 seconds, we were probably suspended - adjust time
-        if (drift > 2) {
+        // If drift is > 5 seconds, we were probably suspended - adjust time
+        // Otherwise, just decrement by 1 second normally
+        if (drift > 5) {
           const totalSeconds = 
-            prev.hours * 3600 + prev.minutes * 60 + prev.seconds - drift;
+            prev.hours * 3600 + prev.minutes * 60 + prev.seconds - (drift - 1);
           
           if (totalSeconds <= 0) {
             // Timer completed while suspended
@@ -470,7 +471,12 @@ export const TimerComponent: React.FC<TimerProps> = ({
 
   if (isMinimized) {
     return (
-      <div className="gap-4 sm:gap-8 flex flex-wrap items-center justify-center fixed top-0 right-0 sm:top-auto sm:bottom-4 sm:right-4 bg-secondary px-4 py-2 rounded-md">
+      <div className="gap-4 sm:gap-8 flex flex-wrap items-center justify-center fixed top-0 right-0 sm:top-auto sm:bottom-4 sm:right-4 bg-secondary px-4 py-2 rounded-md z-50">
+        {isAudioPlaying && (
+          <div className="w-full text-center py-2 bg-destructive text-white rounded-md animate-pulse">
+            <p className="font-bold">🔔 ALARM RINGING</p>
+          </div>
+        )}
         <div className="flex gap-2">
           <p className="text-2xl font-bold uppercase tabular-nums">
             {time.hours.toString().padStart(2, "0")}
@@ -580,36 +586,38 @@ export const TimerComponent: React.FC<TimerProps> = ({
             </TooltipProvider>
           </Link>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                onClick={() => {
-                  setAudioSrc();
-
-                  if (isAudioPlaying) {
-                    pauseAudio();
-                  } else {
+          {isAudioPlaying ? (
+            <Button
+              onClick={pauseAudio}
+              variant="destructive"
+              className="grow py-6 animate-pulse"
+            >
+              <PauseIcon className="w-5 h-5 mr-2" />
+              <span className="font-bold">STOP ALARM</span>
+            </Button>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  onClick={() => {
+                    setAudioSrc();
                     playAudio();
-                  }
-                }}
-                className={cn(
-                  buttonVariants({
-                    variant: "destructive",
-                    className: "grow py-4",
-                  })
-                )}
-              >
-                {isAudioPlaying ? (
-                  <PauseIcon className="w-5 h-5" />
-                ) : (
+                  }}
+                  className={cn(
+                    buttonVariants({
+                      variant: "outline",
+                      className: "grow py-4",
+                    })
+                  )}
+                >
                   <PlayIcon className="w-5 h-5" />
-                )}
-              </TooltipTrigger>
-              <TooltipContent className="bg-secondary">
-                {isAudioPlaying ? "Pause the sound" : "Play the sound"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+                </TooltipTrigger>
+                <TooltipContent className="bg-secondary">
+                  Test sound
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
     );
@@ -667,118 +675,128 @@ export const TimerComponent: React.FC<TimerProps> = ({
         </p>
       </div>
 
+      {isAudioPlaying && (
+        <div className="mt-4 mb-2 px-6 py-3 bg-destructive text-white rounded-lg animate-pulse">
+          <p className="text-xl font-bold text-center">🔔 ALARM RINGING!</p>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row gap-2 mt-8">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger
-              onClick={() => {
-                if (isRunning) {
-                  pauseTimer();
-                } else {
-                  startTimer();
-                }
-              }}
-              className={cn(
-                buttonVariants({ className: "px-16 py-4", variant: "default" })
-              )}
-            >
-              <div className="flex items-center">
-                {isRunning ? (
-                  <React.Fragment>
-                    <PauseIcon className="w-5 h-5 mr-3" />
-
-                    <p className="uppercase font-semibold text-base">Pause</p>
-                  </React.Fragment>
-                ) : (
-                  <React.Fragment>
-                    <PlayIcon className="w-5 h-5 mr-3" />
-
-                    <p className="uppercase font-semibold text-base">Start</p>
-                  </React.Fragment>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="bg-secondary">
-              {isRunning ? "Pause the timer" : "Start the timer"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <div className="flex gap-2 grow">
+        {isAudioPlaying ? (
+          <Button
+            onClick={pauseAudio}
+            variant="destructive"
+            className="px-16 py-6 text-lg animate-pulse"
+          >
+            <PauseIcon className="w-6 h-6 mr-3" />
+            <span className="uppercase font-bold">STOP ALARM</span>
+          </Button>
+        ) : (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger
+                onClick={() => {
+                  if (isRunning) {
+                    pauseTimer();
+                  } else {
+                    startTimer();
+                  }
+                }}
                 className={cn(
-                  buttonVariants({
-                    variant: "secondary",
-                    className: "grow py-4",
-                  })
+                  buttonVariants({ className: "px-16 py-4", variant: "default" })
                 )}
-                onClick={resetTimer}
               >
-                <TimerResetIcon className="w-5 h-5" />
+                <div className="flex items-center">
+                  {isRunning ? (
+                    <React.Fragment>
+                      <PauseIcon className="w-5 h-5 mr-3" />
+
+                      <p className="uppercase font-semibold text-base">Pause</p>
+                    </React.Fragment>
+                  ) : (
+                    <React.Fragment>
+                      <PlayIcon className="w-5 h-5 mr-3" />
+
+                      <p className="uppercase font-semibold text-base">Start</p>
+                    </React.Fragment>
+                  )}
+                </div>
               </TooltipTrigger>
               <TooltipContent className="bg-secondary">
-                Reset the timer
+                {isRunning ? "Pause the timer" : "Start the timer"}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        )}
 
-          <Link
-            to="/$timerId/edit"
-            className="block"
-            params={{ timerId: timer.id }}
-          >
+        {!isAudioPlaying && (
+          <div className="flex gap-2 grow">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger
                   className={cn(
                     buttonVariants({
                       variant: "secondary",
-                      className: "grow py-4 h-full",
+                      className: "grow py-4",
                     })
                   )}
+                  onClick={resetTimer}
                 >
-                  <PencilIcon className="w-5 h-5" />
+                  <TimerResetIcon className="w-5 h-5" />
                 </TooltipTrigger>
                 <TooltipContent className="bg-secondary">
-                  Edit the timer
+                  Reset the timer
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </Link>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                onClick={() => {
-                  setAudioSrc();
+            <Link
+              to="/$timerId/edit"
+              className="block"
+              params={{ timerId: timer.id }}
+            >
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    className={cn(
+                      buttonVariants({
+                        variant: "secondary",
+                        className: "grow py-4 h-full",
+                      })
+                    )}
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-secondary">
+                    Edit the timer
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Link>
 
-                  if (isAudioPlaying) {
-                    pauseAudio();
-                  } else {
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  onClick={() => {
+                    setAudioSrc();
                     playAudio();
-                  }
-                }}
-                className={cn(
-                  buttonVariants({
-                    variant: "destructive",
-                    className: "grow py-4",
-                  })
-                )}
-              >
-                {isAudioPlaying ? (
-                  <PauseIcon className="w-5 h-5" />
-                ) : (
+                  }}
+                  className={cn(
+                    buttonVariants({
+                      variant: "outline",
+                      className: "grow py-4",
+                    })
+                  )}
+                >
                   <PlayIcon className="w-5 h-5" />
-                )}
-              </TooltipTrigger>
-              <TooltipContent className="bg-secondary">
-                {isAudioPlaying ? "Pause the sound" : "Play the sound"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-secondary">
+                  Test sound
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
       </div>
     </div>
   );
