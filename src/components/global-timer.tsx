@@ -130,13 +130,17 @@ export const TimerComponent: React.FC<TimerProps> = ({
   };
 
   const playAudio = () => {
-    audioRef.current.play();
+    audioRef.current.loop = true;
     audioRef.current.volume = timer.volume;
+    audioRef.current.play().catch(err => {
+      console.error('Failed to play audio:', err);
+    });
+    setIsAudioPlaying(true);
   };
 
   const pauseAudio = () => {
     audioRef.current.pause();
-
+    audioRef.current.currentTime = 0;
     setIsAudioPlaying(false);
   };
 
@@ -270,28 +274,8 @@ export const TimerComponent: React.FC<TimerProps> = ({
       setTime((prev) => {
         let newTime: Time;
         
-        // Handle time drift - check if we've been suspended
-        const now = Date.now();
-        const drift = Math.floor((now - lastTickTime.current) / 1000);
-        lastTickTime.current = now;
-        
-        // If drift is > 5 seconds, we were probably suspended - adjust time
-        // Otherwise, just decrement by 1 second normally
-        if (drift > 5) {
-          const totalSeconds = 
-            prev.hours * 3600 + prev.minutes * 60 + prev.seconds - (drift - 1);
-          
-          if (totalSeconds <= 0) {
-            // Timer completed while suspended
-            newTime = { hours: 0, minutes: 0, seconds: 0 };
-          } else {
-            newTime = {
-              hours: Math.floor(totalSeconds / 3600),
-              minutes: Math.floor((totalSeconds % 3600) / 60),
-              seconds: totalSeconds % 60,
-            };
-          }
-        } else if (prev.seconds > 0) {
+        // Normal countdown - just decrement by 1 second
+        if (prev.seconds > 0) {
           newTime = {
             ...prev,
             seconds: prev.seconds - 1,
@@ -388,15 +372,96 @@ export const TimerComponent: React.FC<TimerProps> = ({
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Page became visible - check if we need to restore state
-        const shouldResume = loadTimerState();
-        if (shouldResume && !isPausedByUser.current) {
-          // Auto-resume if timer was running
-          setTimeout(() => {
-            if (!isRunning) {
-              startTimer();
+        // Page became visible
+        const saved = localStorage.getItem(`timer-state-${timer.id}`);
+        if (saved) {
+          try {
+            const state = JSON.parse(saved);
+            if (state.isRunning && !isPausedByUser.current) {
+              // Calculate elapsed time
+              const elapsed = Math.floor((Date.now() - state.lastUpdate) / 1000);
+              const totalSeconds = 
+                state.time.hours * 3600 + 
+                state.time.minutes * 60 + 
+                state.time.seconds - elapsed;
+              
+              if (totalSeconds > 0) {
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                
+                setTime({ hours, minutes, seconds });
+                
+                // Resume if not already running
+                if (!isRunning) {
+                  setTimeout(() => {
+                    setIsRunning(true);
+                    isPausedByUser.current = false;
+                    lastTickTime.current = Date.now();
+                    requestWakeLock();
+                    
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                      showNotification({ hours, minutes, seconds });
+                    }
+                    
+                    countDownInterval.current = setInterval(() => {
+                      setTime((prev) => {
+                        let newTime: Time;
+                        
+                        if (prev.seconds > 0) {
+                          newTime = { ...prev, seconds: prev.seconds - 1 };
+                        } else if (prev.minutes > 0) {
+                          newTime = { ...prev, minutes: prev.minutes - 1, seconds: 59 };
+                        } else if (prev.hours > 0) {
+                          newTime = { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
+                        } else {
+                          audioRef.current.currentTime = 0;
+                          playAudio();
+                          showNotification(timer.time, true);
+                          localStorage.removeItem(`timer-state-${timer.id}`);
+
+                          if (timer.isOneTime) {
+                            releaseWakeLock();
+                            deleteTimer();
+                            navigate({ to: "/", replace: true });
+                            return timer.time;
+                          }
+
+                          if (timer.isInterval) {
+                            newTime = timer.time;
+                            showNotification(newTime);
+                            saveTimerState(newTime, true);
+                            return newTime;
+                          }
+
+                          releaseWakeLock();
+                          setIsRunning(false);
+                          clearInterval(countDownInterval.current!);
+                          return prev;
+                        }
+                        
+                        saveTimerState(newTime, true);
+                        
+                        if (newTime.seconds % 5 === 0) {
+                          showNotification(newTime);
+                        }
+                        
+                        return newTime;
+                      });
+                    }, 1000);
+                  }, 100);
+                }
+              } else if (totalSeconds <= 0) {
+                // Timer completed while suspended
+                setTime({ hours: 0, minutes: 0, seconds: 0 });
+                playAudio();
+                showNotification(timer.time, true);
+                localStorage.removeItem(`timer-state-${timer.id}`);
+              }
             }
-          }, 100);
+          } catch (err) {
+            console.error('Failed to restore timer state:', err);
+          }
         }
       } else {
         // Page hidden - ensure state is saved
@@ -408,12 +473,34 @@ export const TimerComponent: React.FC<TimerProps> = ({
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Load initial state
-    const shouldResume = loadTimerState();
-    if (shouldResume && !isPausedByUser.current) {
-      setTimeout(() => {
-        startTimer();
-      }, 500);
+    // Load initial state on mount
+    const saved = localStorage.getItem(`timer-state-${timer.id}`);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.isRunning && !isPausedByUser.current) {
+          const elapsed = Math.floor((Date.now() - state.lastUpdate) / 1000);
+          const totalSeconds = 
+            state.time.hours * 3600 + 
+            state.time.minutes * 60 + 
+            state.time.seconds - elapsed;
+          
+          if (totalSeconds > 0) {
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            setTime({ hours, minutes, seconds });
+            setTimeout(() => {
+              if (!isRunning) {
+                startTimer();
+              }
+            }, 500);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load initial timer state:', err);
+      }
     }
     
     return () => {
@@ -429,22 +516,28 @@ export const TimerComponent: React.FC<TimerProps> = ({
     const audio = audioRef.current;
 
     const handleEnded = () => {
-      setIsAudioPlaying(false);
-
+      // Only set to false if not looping
+      if (!audio.loop) {
+        setIsAudioPlaying(false);
+      }
       console.log("HANDLE ENDED");
     };
 
     const handlePlay = () => {
       setIsAudioPlaying(true);
     };
+    
+    const handlePause = () => {
+      setIsAudioPlaying(false);
+    };
 
     audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("pause", handleEnded);
+    audio.addEventListener("pause", handlePause);
     audio.addEventListener("play", handlePlay);
 
     return () => {
       audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("pause", handleEnded);
+      audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("play", handlePlay);
       
       // Clean up notification on unmount
