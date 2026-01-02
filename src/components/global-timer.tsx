@@ -791,19 +791,6 @@ export const TimerComponent: React.FC<TimerProps> = ({
             </Tooltip>
           </TooltipProvider>
         </div>
-                      className: "grow py-4",
-                    })
-                  )}
-                >
-                  <PlayIcon className="w-5 h-5" />
-                </TooltipTrigger>
-                <TooltipContent className="bg-secondary">
-                  Test sound
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
       </div>
     </div>
   );
