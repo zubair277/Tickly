@@ -32,7 +32,7 @@ export const Route = new FileRoute("/$timerId/edit").createRoute({
       <p className="text-6xl font-semibold">Timer not found</p>
 
       <Link to="/">
-        <Button className="mt-8">
+        <Button className="mt-81">
           <p className="text-xl font-semibold">Go back</p>
         </Button>
       </Link>
