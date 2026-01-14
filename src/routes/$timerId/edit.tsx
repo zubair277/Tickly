@@ -29,7 +29,7 @@ export const Route = new FileRoute("/$timerId/edit").createRoute({
   },
   errorComponent: () => (
     <div className="flex flex-col items-center justify-center h-full w-full min-h-[inherit]">
-      <p className="text-6xl font-semibold">Timer not found</p>
+      <p className="text-6xl font-semibold">Timer not found HERE, Please Try Again</p>
 
       <Link to="/">
         <Button className="mt-8">
